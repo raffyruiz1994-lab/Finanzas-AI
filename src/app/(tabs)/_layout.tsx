@@ -83,6 +83,14 @@ function CustomTabBar({ state, navigation }: any) {
   const openNewTxModal = useFinanceStore((s) => s.openNewTxModal);
   const openCrearPlanModal = useFinanceStore((s) => s.openCrearPlanModal);
 
+  // Adaptación dinámica de altura:
+  // En Android con 3 botones de navegación (o barra de gestos), insets.bottom provee el espacio exacto del sistema.
+  // En iOS, provee el espacio del Home Indicator (34px).
+  // Se suma la altura base del contenido de los tabs (52-56px) para que NUNCA se recorte ni quede tapado.
+  const bottomInset = Math.max(insets.bottom, Platform.OS === 'android' ? 14 : 8);
+  const baseTabHeight = Platform.OS === 'ios' ? 52 : 56;
+  const totalBarHeight = baseTabHeight + bottomInset;
+
   const getRouteIndex = (name: string) => state.routes.findIndex((r: any) => r.name === name);
 
   const isCurrent = (name: string) => {
@@ -119,7 +127,9 @@ function CustomTabBar({ state, navigation }: any) {
           borderTopColor: colors.tabBarBorder,
           shadowColor: colors.cardShadow,
           shadowOpacity: isDark ? 0.45 : 0.08,
-          paddingBottom: Math.max(insets.bottom, 6),
+          height: totalBarHeight,
+          paddingBottom: bottomInset,
+          paddingTop: 4,
         },
       ]}
     >
@@ -251,7 +261,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#111319',
     borderTopColor: '#222634',
     borderTopWidth: 1,
-    height: Platform.OS === 'ios' ? 84 : 64,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
