@@ -98,6 +98,7 @@ export default function DashboardScreen() {
   };
 
   // Finance store
+  const accounts = useFinanceStore((state) => state.accounts);
   const transactions = useFinanceStore((state) => state.transactions);
   const budgets = useFinanceStore((state) => state.budgets);
   const categories = useFinanceStore((state) => state.categories);
@@ -252,25 +253,17 @@ export default function DashboardScreen() {
   }, [transactions]);
 
   const availableBalance = useMemo(() => {
-    const balance = totalIncome - totalExpense;
-    return balance > 0 ? balance : transactions.length === 0 ? 12450.8 : balance;
-  }, [totalIncome, totalExpense, transactions]);
+    if (accounts && accounts.length > 0) {
+      return accounts.reduce((acc, a) => acc + (a.balance || 0), 0);
+    }
+    return totalIncome - totalExpense;
+  }, [accounts, totalIncome, totalExpense]);
 
   // Last expense calculation
   const lastExpense = useMemo(() => {
     const expense = transactions.find((t) => t.type === 'expense');
-    if (expense) return expense;
-    return {
-      id: 'demo_starbucks',
-      type: 'expense' as const,
-      amount: 4.75,
-      currency: 'USD' as const,
-      date: todayStr,
-      description: 'Starbucks Coffee',
-      merchant: 'Starbucks Coffee',
-      categoryId: 'food',
-    };
-  }, [transactions, todayStr]);
+    return expense || null;
+  }, [transactions]);
 
   // Days remaining in current month
   const now = new Date();
@@ -280,17 +273,15 @@ export default function DashboardScreen() {
     const list = transactions.filter(
       (tx) => tx.type === 'income' && (tx.date || '').startsWith(currentYearMonth)
     );
-    const sum = list.reduce((acc, tx) => acc + tx.amount, 0);
-    return sum > 0 ? sum : totalIncome > 0 ? totalIncome : 103000;
-  }, [transactions, currentYearMonth, totalIncome]);
+    return list.reduce((acc, tx) => acc + tx.amount, 0);
+  }, [transactions, currentYearMonth]);
 
   const monthlyExpense = useMemo(() => {
     const list = transactions.filter(
       (tx) => tx.type === 'expense' && (tx.date || '').startsWith(currentYearMonth)
     );
-    const sum = list.reduce((acc, tx) => acc + tx.amount, 0);
-    return sum > 0 ? sum : totalExpense > 0 ? totalExpense : 18249;
-  }, [transactions, currentYearMonth, totalExpense]);
+    return list.reduce((acc, tx) => acc + tx.amount, 0);
+  }, [transactions, currentYearMonth]);
 
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const daysRemaining = Math.max(1, daysInMonth - now.getDate());
@@ -298,13 +289,11 @@ export default function DashboardScreen() {
 
   // Budget calculations
   const totalBudgetLimit = useMemo(() => {
-    const sum = budgets.reduce((acc, b) => acc + (b.amount || 0), 0);
-    return sum > 0 ? sum : 4200.0;
+    return budgets.reduce((acc, b) => acc + (b.amount || 0), 0);
   }, [budgets]);
 
   const budgetSpent = useMemo(() => {
-    if (totalExpense > 0) return totalExpense;
-    return 2604.0;
+    return totalExpense;
   }, [totalExpense]);
 
   const budgetRemaining = useMemo(() => {
@@ -312,6 +301,7 @@ export default function DashboardScreen() {
   }, [totalBudgetLimit, budgetSpent]);
 
   const budgetSpentPercent = useMemo(() => {
+    if (totalBudgetLimit <= 0) return 0;
     return Math.min(100, Math.round((budgetSpent / totalBudgetLimit) * 100));
   }, [budgetSpent, totalBudgetLimit]);
 
@@ -773,8 +763,13 @@ export default function DashboardScreen() {
                 <Ionicons name="hardware-chip" size={16} color="#FFFFFF" />
               </LinearGradient>
               <Text style={[styles.copilotText, { color: colors.text }]} numberOfLines={2}>
-                Detectamos un ahorro recurrente de{' '}
-                <Text style={styles.copilotHighlight}>$12.40</Text> esta semana.
+                {transactions.length === 0 ? (
+                  'Asistente IA listo para optimizar tus finanzas y tus presupuestos.'
+                ) : (
+                  <>
+                    Detectamos oportunidades de ahorro y control para tus finanzas activas.
+                  </>
+                )}
               </Text>
             </View>
             <Pressable
@@ -927,18 +922,20 @@ export default function DashboardScreen() {
               />
 
               {/* Píldora Dorada/Ámbar de Último Gasto */}
-              <View style={styles.lastExpensePill}>
-                <Ionicons name="receipt-outline" size={14} color="#0F172A" />
-                <Text style={styles.lastExpenseText} numberOfLines={1}>
-                  Último gasto:{' '}
-                  <Text style={styles.lastExpenseBold}>
-                    {isPrivacyHidden
-                      ? '•••'
-                      : `-${currencySymbol}${formatAmount(lastExpense.amount)}`}
-                  </Text>{' '}
-                  en {lastExpense.merchant || lastExpense.description} (Hoy)
-                </Text>
-              </View>
+              {lastExpense && (
+                <View style={styles.lastExpensePill}>
+                  <Ionicons name="receipt-outline" size={14} color="#0F172A" />
+                  <Text style={styles.lastExpenseText} numberOfLines={1}>
+                    Último gasto:{' '}
+                    <Text style={styles.lastExpenseBold}>
+                      {isPrivacyHidden
+                        ? '•••'
+                        : `-${currencySymbol}${formatAmount(lastExpense.amount)}`}
+                    </Text>{' '}
+                    en {lastExpense.merchant || lastExpense.description} (Hoy)
+                  </Text>
+                </View>
+              )}
 
               {/* Subtexto: Límite mensual */}
               <Text style={styles.limitSubtext}>

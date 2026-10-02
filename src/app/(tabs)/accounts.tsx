@@ -388,113 +388,8 @@ export default function PresupuestosScreen() {
     isPrivacyHidden,
   ]);
 
-  // High-fidelity fallback budgets matching the exact Radiant Amber design when user has 0 budgets
-  const fallbackBudgetsList = useMemo(() => {
-    const sample = [
-      {
-        id: 'sample_food_groceries',
-        title: 'Alimentación & Supermercado',
-        baseLimit: 800,
-        baseSpent: 680,
-        categoryId: 'groceries',
-      },
-      {
-        id: 'sample_restaurants_cafes',
-        title: 'Restaurantes & Cafés',
-        baseLimit: 450,
-        baseSpent: 320,
-        categoryId: 'food',
-      },
-      {
-        id: 'sample_transport_gas',
-        title: 'Transporte & Gasolina',
-        baseLimit: 250,
-        baseSpent: 190,
-        categoryId: 'transport',
-      },
-      {
-        id: 'sample_subscriptions_services',
-        title: 'Servicios & Suscripciones',
-        baseLimit: 380,
-        baseSpent: 380,
-        categoryId: 'entertainment',
-      },
-      {
-        id: 'sample_leisure_fun',
-        title: 'Ocio & Diversión',
-        baseLimit: 400,
-        baseSpent: 150,
-        categoryId: 'entertainment',
-      },
-    ];
-
-    return sample.map((s) => {
-      const limit = Math.round(s.baseLimit * periodFactor);
-      const spent = Math.round(s.baseSpent * periodFactor);
-      const remaining = Math.max(0, limit - spent);
-      const percentage = Math.min(100, Math.round((spent / limit) * 100));
-      const visuals = getCategoryVisuals(s.title, s.categoryId);
-
-      let statusText = `Ritmo ideal · ${currencySymbol}${formatAmount(remaining)} rest.`;
-      let statusColor = '#34D399';
-      let barColor = '#34D399';
-
-      if (spent >= limit) {
-        statusText = 'Totalidad cubierta';
-        statusColor = '#94A3B8';
-        barColor = '#64748B';
-      } else if (percentage >= 85) {
-        statusText = `⚠️ Quedan ${currencySymbol}${formatAmount(remaining)}`;
-        statusColor = '#FB7185';
-        barColor = '#F43F5E';
-      } else if (percentage >= 70) {
-        statusText = `Ritmo ideal · ${currencySymbol}${formatAmount(remaining)} rest.`;
-        statusColor = '#F59E0B';
-        barColor = '#F59E0B';
-      } else if (percentage >= 50) {
-        statusText = `Bajo control · ${currencySymbol}${formatAmount(remaining)} rest.`;
-        statusColor = '#38BDF8';
-        barColor = '#FF6B00';
-      } else {
-        statusText = `Excelente ahorro · ${currencySymbol}${formatAmount(remaining)} rest.`;
-        statusColor = '#34D399';
-        barColor = '#10B981';
-      }
-
-      const mockBudget: Budget = {
-        id: s.id,
-        name: s.title,
-        categoryId: s.categoryId,
-        amount: s.baseLimit,
-        period: 'monthly',
-        alertThreshold: 0.8,
-        spent: s.baseSpent,
-        remaining: s.baseLimit - s.baseSpent,
-        percentage,
-        isRecurring: true,
-      };
-
-      return {
-        id: s.id,
-        title: s.title,
-        spent,
-        limit,
-        remaining,
-        percentage,
-        icon: visuals.icon,
-        iconBg: visuals.iconBg,
-        iconBorder: visuals.iconBorder,
-        iconColor: visuals.iconColor,
-        statusText,
-        statusColor,
-        barColor,
-        rawBudget: mockBudget,
-      };
-    });
-  }, [periodFactor, currencySymbol, isPrivacyHidden]);
-
-  // Display budgets: use real budgets if configured, otherwise show sample items
-  const displayBudgets = storeBudgetsList.length > 0 ? storeBudgetsList : fallbackBudgetsList;
+  // Display budgets: use real budgets configured in store
+  const displayBudgets = storeBudgetsList;
 
   // Process savings goals from store with real saved calculations
   const processedGoals = useMemo(() => {
@@ -894,94 +789,111 @@ export default function PresupuestosScreen() {
               </View>
             </View>
 
-            <View style={styles.budgetCardsList}>
-              {displayBudgets.map((item) => {
-                const {
-                  id,
-                  title,
-                  spent,
-                  limit,
-                  percentage,
-                  icon,
-                  iconBg,
-                  iconBorder,
-                  iconColor,
-                  statusText,
-                  statusColor,
-                  barColor,
-                  rawBudget,
-                } = item;
+            {displayBudgets.length > 0 ? (
+              <View style={styles.budgetCardsList}>
+                {displayBudgets.map((item) => {
+                  const {
+                    id,
+                    title,
+                    spent,
+                    limit,
+                    percentage,
+                    icon,
+                    iconBg,
+                    iconBorder,
+                    iconColor,
+                    statusText,
+                    statusColor,
+                    barColor,
+                    rawBudget,
+                  } = item;
 
-                return (
-                  <AnimatedCard
-                    key={id}
-                    onPress={() => {
-                      if (rawBudget) {
-                        setSelectedPlan({ type: 'budget', data: rawBudget });
-                      } else {
-                        setNuevoLimiteVisible(true);
-                      }
-                    }}
-                    style={styles.budgetCategoryCard}
-                    activeScale={0.98}
-                    hapticType="selection"
-                  >
-                    {/* Fila superior: Icono + Nombre + Estado + Cantidades */}
-                    <View style={styles.cardMainRow}>
-                      <View style={styles.cardLeftCol}>
-                        <View
-                          style={[
-                            styles.categoryIconBox,
-                            { backgroundColor: iconBg, borderColor: iconBorder },
-                          ]}
-                        >
-                          <Ionicons name={icon as any} size={20} color={iconColor} />
-                        </View>
-
-                        <View style={styles.categoryInfoCol}>
-                          <Text style={styles.categoryNameText} numberOfLines={1}>
-                            {title}
-                          </Text>
-                          <Text
-                            style={[styles.categoryStatusText, { color: statusColor }]}
-                            numberOfLines={1}
+                  return (
+                    <AnimatedCard
+                      key={id}
+                      onPress={() => {
+                        if (rawBudget) {
+                          setSelectedPlan({ type: 'budget', data: rawBudget });
+                        } else {
+                          setNuevoLimiteVisible(true);
+                        }
+                      }}
+                      style={styles.budgetCategoryCard}
+                      activeScale={0.98}
+                      hapticType="selection"
+                    >
+                      {/* Fila superior: Icono + Nombre + Estado + Cantidades */}
+                      <View style={styles.cardMainRow}>
+                        <View style={styles.cardLeftCol}>
+                          <View
+                            style={[
+                              styles.categoryIconBox,
+                              { backgroundColor: iconBg, borderColor: iconBorder },
+                            ]}
                           >
-                            {statusText}
+                            <Ionicons name={icon as any} size={20} color={iconColor} />
+                          </View>
+
+                          <View style={styles.categoryInfoCol}>
+                            <Text style={styles.categoryNameText} numberOfLines={1}>
+                              {title}
+                            </Text>
+                            <Text
+                              style={[styles.categoryStatusText, { color: statusColor }]}
+                              numberOfLines={1}
+                            >
+                              {statusText}
+                            </Text>
+                          </View>
+                        </View>
+
+                        <View style={styles.cardRightAmounts}>
+                          <Text style={styles.categorySpentAmount}>
+                            {currencySymbol}
+                            {formatAmountWhole(spent)}
+                          </Text>
+                          <Text style={styles.categoryLimitAmount}>
+                            de {currencySymbol}
+                            {formatAmountWhole(limit)}
                           </Text>
                         </View>
                       </View>
 
-                      <View style={styles.cardRightAmounts}>
-                        <Text style={styles.categorySpentAmount}>
-                          {currencySymbol}
-                          {formatAmountWhole(spent)}
-                        </Text>
-                        <Text style={styles.categoryLimitAmount}>
-                          de {currencySymbol}
-                          {formatAmountWhole(limit)}
+                      {/* Fila inferior: Barra de progreso Reanimated + Porcentaje */}
+                      <View style={styles.progressBarWrapper}>
+                        <View style={{ flex: 1, marginRight: 10 }}>
+                          <AnimatedProgressBar
+                            progress={percentage}
+                            color={barColor}
+                            trackColor={isDark ? '#252A38' : '#E2E8F0'}
+                            height={6}
+                            borderRadius={3}
+                          />
+                        </View>
+                        <Text style={[styles.progressPercentText, { color: barColor }]}>
+                          {percentage}%
                         </Text>
                       </View>
-                    </View>
-
-                    {/* Fila inferior: Barra de progreso Reanimated + Porcentaje */}
-                    <View style={styles.progressBarWrapper}>
-                      <View style={{ flex: 1, marginRight: 10 }}>
-                        <AnimatedProgressBar
-                          progress={percentage}
-                          color={barColor}
-                          trackColor={isDark ? '#252A38' : '#E2E8F0'}
-                          height={6}
-                          borderRadius={3}
-                        />
-                      </View>
-                      <Text style={[styles.progressPercentText, { color: barColor }]}>
-                        {percentage}%
-                      </Text>
-                    </View>
-                  </AnimatedCard>
-                );
-              })}
-            </View>
+                    </AnimatedCard>
+                  );
+                })}
+              </View>
+            ) : (
+              <View style={styles.emptyGoalsContainer}>
+                <Ionicons name="pie-chart-outline" size={36} color={colors.textMuted} />
+                <Text style={styles.emptyGoalsTitle}>No tienes presupuestos activos</Text>
+                <Text style={styles.emptyGoalsSub}>
+                  Define límites de gasto por categoría para planificar mejor tu mes.
+                </Text>
+                <Pressable
+                  onPress={() => setNuevoLimiteVisible(true)}
+                  style={[styles.createGoalBtn, { backgroundColor: '#FF6800' }]}
+                >
+                  <Ionicons name="add" size={16} color="#FFFFFF" />
+                  <Text style={[styles.createGoalBtnText, { color: '#FFFFFF' }]}>Crear Presupuesto</Text>
+                </Pressable>
+              </View>
+            )}
           </View>
         )}
 

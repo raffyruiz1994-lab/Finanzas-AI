@@ -1019,9 +1019,9 @@ export const useFinanceStore = create<FinanceState>()(
             ];
           }
 
-          if (!state.recurring || state.recurring.length === 0) {
+          if (state.recurring === undefined) {
             state.recurring = INITIAL_RECURRING;
-          } else {
+          } else if (state.recurring && state.recurring.length > 0) {
             const existingRecIds = new Set(state.recurring.map((r) => r.id));
             const missingInitial = INITIAL_RECURRING.filter((r) => !existingRecIds.has(r.id));
             state.recurring = [
@@ -1030,18 +1030,11 @@ export const useFinanceStore = create<FinanceState>()(
                 status: r.status || 'active',
                 type: r.type || 'expense',
               })),
-              ...missingInitial,
             ];
           }
 
-          if (!state.commonTemplates || state.commonTemplates.length === 0) {
+          if (state.commonTemplates === undefined) {
             state.commonTemplates = INITIAL_COMMON_TEMPLATES;
-          } else {
-            const existingTmplIds = new Set(state.commonTemplates.map((t) => t.id));
-            const missingTmpls = INITIAL_COMMON_TEMPLATES.filter((t) => !existingTmplIds.has(t.id));
-            if (missingTmpls.length > 0) {
-              state.commonTemplates = [...state.commonTemplates, ...missingTmpls];
-            }
           }
         }
       },

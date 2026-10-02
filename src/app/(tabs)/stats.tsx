@@ -122,38 +122,35 @@ export default function StatsScreen() {
 
   // Aggregated totals
   const totalExpense = useMemo(() => {
-    const val = periodTransactions
+    return periodTransactions
       .filter((t) => t.type === 'expense')
       .reduce((sum, t) => sum + t.amount, 0);
-    return val > 0 ? val : 1850; // Sensible luxury fallback if period has 0
   }, [periodTransactions]);
 
   const totalIncome = useMemo(() => {
-    const val = periodTransactions
+    return periodTransactions
       .filter((t) => t.type === 'income')
       .reduce((sum, t) => sum + t.amount, 0);
-    return val > 0 ? val : 3450;
   }, [periodTransactions]);
 
   const prevTotalExpense = useMemo(() => {
-    const val = prevMonthTransactions
+    return prevMonthTransactions
       .filter((t) => t.type === 'expense')
       .reduce((sum, t) => sum + t.amount, 0);
-    return val > 0 ? val : 2100;
   }, [prevMonthTransactions]);
 
   const netSavings = Math.max(0, totalIncome - totalExpense);
-  const savingsRate = totalIncome > 0 ? Math.round((netSavings / totalIncome) * 100) : 46;
+  const savingsRate = totalIncome > 0 ? Math.round((netSavings / totalIncome) * 100) : 0;
 
   // Comparison % vs previous period
   const expenseDiffPercent = useMemo(() => {
-    if (prevTotalExpense <= 0) return -12.4;
+    if (prevTotalExpense <= 0) return 0;
     const diff = ((totalExpense - prevTotalExpense) / prevTotalExpense) * 100;
     return Math.round(diff * 10) / 10;
   }, [totalExpense, prevTotalExpense]);
 
   const daysInPeriod = selectedTimeTab === 'Semana' ? 7 : selectedTimeTab === 'Año' ? 365 : 31;
-  const dailyAverage = totalExpense > 0 ? Math.round((totalExpense / daysInPeriod) * 100) / 100 : 59.67;
+  const dailyAverage = totalExpense > 0 ? Math.round((totalExpense / daysInPeriod) * 100) / 100 : 0;
 
   // Categories Breakdown
   const sortedCategories = useMemo(() => {
@@ -178,15 +175,8 @@ export default function StatsScreen() {
       };
     });
 
-    // If list is empty, return standard visual breakdown
     if (list.length === 0) {
-      return [
-        { id: 'cat_super', name: 'Supermercado', icon: 'cart-outline', color: '#FF6B00', amount: 680, percentage: 36 },
-        { id: 'cat_fixed', name: 'Servicios Fijos', icon: 'flash-outline', color: '#38BDF8', amount: 380, percentage: 20 },
-        { id: 'cat_dining', name: 'Restaurantes', icon: 'restaurant-outline', color: '#FBBF24', amount: 320, percentage: 17 },
-        { id: 'cat_trans', name: 'Transporte', icon: 'car-outline', color: '#A855F7', amount: 190, percentage: 10 },
-        { id: 'cat_other', name: 'Otros Gastos', icon: 'ellipsis-horizontal-outline', color: '#64748B', amount: 280, percentage: 17 },
-      ];
+      return [];
     }
 
     return list.sort((a, b) => b.amount - a.amount);
@@ -221,22 +211,12 @@ export default function StatsScreen() {
       }
     });
 
-    // Provide balanced baseline values if period has no registered movements
-    if (weeks[0].expense === 0 && weeks[1].expense === 0 && weeks[2].expense === 0 && weeks[3].expense === 0) {
-      weeks[0].expense = 420;
-      weeks[1].expense = 510;
-      weeks[2].expense = 630;
-      weeks[3].expense = 290;
-    }
-    if (weeks[0].income === 0 && weeks[1].income === 0 && weeks[2].income === 0 && weeks[3].income === 0) {
-      weeks[0].income = 950;
-      weeks[1].income = 600;
-      weeks[2].income = 1100;
-      weeks[3].income = 800;
-    }
-
     return weeks;
   }, [transactions, currentMonth.id]);
+
+  const hasWeeklyData = useMemo(() => {
+    return weeklyData.some((w) => w.expense > 0 || w.income > 0);
+  }, [weeklyData]);
 
   // Day of week analysis for AI Habit Detection
   const dayStats = useMemo(() => {
@@ -676,34 +656,38 @@ Generado con Finanzas AI`;
               <Line x1="0" y1="90" x2="320" y2="90" stroke={colors.borderSubtle} strokeWidth="1" />
 
               {/* Income Area & Curve (Green) */}
-              <Path
-                d="M 15 75 C 50 70, 85 20, 115 20 C 155 20, 185 70, 220 55 C 260 40, 285 25, 305 25 L 305 90 L 15 90 Z"
-                fill="url(#incomeGlow)"
-              />
-              <Path
-                d="M 15 75 C 50 70, 85 20, 115 20 C 155 20, 185 70, 220 55 C 260 40, 285 25, 305 25"
-                fill="none"
-                stroke="#10B981"
-                strokeLinecap="round"
-                strokeWidth="2.5"
-              />
+              {hasWeeklyData ? (
+                <>
+                  <Path
+                    d="M 15 75 C 50 70, 85 20, 115 20 C 155 20, 185 70, 220 55 C 260 40, 285 25, 305 25 L 305 90 L 15 90 Z"
+                    fill="url(#incomeGlow)"
+                  />
+                  <Path
+                    d="M 15 75 C 50 70, 85 20, 115 20 C 155 20, 185 70, 220 55 C 260 40, 285 25, 305 25"
+                    fill="none"
+                    stroke="#10B981"
+                    strokeLinecap="round"
+                    strokeWidth="2.5"
+                  />
 
-              {/* Expense Area & Curve (Orange) */}
-              <Path
-                d="M 15 65 C 50 60, 85 45, 115 50 C 155 58, 185 30, 220 38 C 260 46, 285 32, 305 35 L 305 90 L 15 90 Z"
-                fill="url(#expenseGlow)"
-              />
-              <Path
-                d="M 15 65 C 50 60, 85 45, 115 50 C 155 58, 185 30, 220 38 C 260 46, 285 32, 305 35"
-                fill="none"
-                stroke="#FF6B00"
-                strokeLinecap="round"
-                strokeWidth="2.5"
-              />
+                  {/* Expense Area & Curve (Orange) */}
+                  <Path
+                    d="M 15 65 C 50 60, 85 45, 115 50 C 155 58, 185 30, 220 38 C 260 46, 285 32, 305 35 L 305 90 L 15 90 Z"
+                    fill="url(#expenseGlow)"
+                  />
+                  <Path
+                    d="M 15 65 C 50 60, 85 45, 115 50 C 155 58, 185 30, 220 38 C 260 46, 285 32, 305 35"
+                    fill="none"
+                    stroke="#FF6B00"
+                    strokeLinecap="round"
+                    strokeWidth="2.5"
+                  />
 
-              {/* Active Marker Circles on Week 3 */}
-              <Circle cx="220" cy="38" r="5" fill="#FF6B00" stroke="#FFFFFF" strokeWidth="2" />
-              <Circle cx="220" cy="55" r="4" fill="#10B981" stroke="#FFFFFF" strokeWidth="1.5" />
+                  {/* Active Marker Circles on Week 3 */}
+                  <Circle cx="220" cy="38" r="5" fill="#FF6B00" stroke="#FFFFFF" strokeWidth="2" />
+                  <Circle cx="220" cy="55" r="4" fill="#10B981" stroke="#FFFFFF" strokeWidth="1.5" />
+                </>
+              ) : null}
             </Svg>
 
             {/* Weeks Navigation Row */}
@@ -796,10 +780,10 @@ Generado con Finanzas AI`;
               <View style={styles.donutCenterHole}>
                 <Text style={styles.donutHoleLabel}>TOP GASTO</Text>
                 <Text style={styles.donutHoleCategory} numberOfLines={1}>
-                  {topCategory?.name || 'Súper'}
+                  {topCategory?.name || 'Ninguno'}
                 </Text>
                 <Text style={styles.donutHolePercent}>
-                  {topCategory?.percentage || 36}%
+                  {topCategory?.percentage || 0}%
                 </Text>
               </View>
             </View>
@@ -807,49 +791,56 @@ Generado con Finanzas AI`;
 
           {/* Categories List with Progress Bars */}
           <View style={styles.categoriesProgressList}>
-            {sortedCategories.map((item) => {
-              const isSelected = selectedCatFilter === item.id;
-              return (
-                <PressableScale
-                  key={item.id}
-                  onPress={() => setSelectedCatFilter(isSelected ? null : item.id)}
-                  style={[
-                    styles.categoryItemCard,
-                    isSelected && styles.categoryItemCardActive,
-                  ]}
-                  hapticType="selection"
-                >
-                  <View style={styles.categoryItemTop}>
-                    <View style={styles.categoryItemLeft}>
-                      <View style={[styles.categoryIconBox, { backgroundColor: `${item.color}22` }]}>
-                        <Ionicons name={item.icon as any} size={18} color={item.color} />
+            {sortedCategories.length > 0 ? (
+              sortedCategories.map((item) => {
+                const isSelected = selectedCatFilter === item.id;
+                return (
+                  <PressableScale
+                    key={item.id}
+                    onPress={() => setSelectedCatFilter(isSelected ? null : item.id)}
+                    style={[
+                      styles.categoryItemCard,
+                      isSelected && styles.categoryItemCardActive,
+                    ]}
+                    hapticType="selection"
+                  >
+                    <View style={styles.categoryItemTop}>
+                      <View style={styles.categoryItemLeft}>
+                        <View style={[styles.categoryIconBox, { backgroundColor: `${item.color}22` }]}>
+                          <Ionicons name={item.icon as any} size={18} color={item.color} />
+                        </View>
+                        <View>
+                          <Text style={styles.categoryItemName}>{item.name}</Text>
+                          <Text style={styles.categoryItemSubtitle}>
+                            {item.percentage}% del gasto total
+                          </Text>
+                        </View>
                       </View>
-                      <View>
-                        <Text style={styles.categoryItemName}>{item.name}</Text>
-                        <Text style={styles.categoryItemSubtitle}>
-                          {item.percentage}% del gasto total
-                        </Text>
-                      </View>
+
+                      <Text style={styles.categoryItemAmount}>
+                        {formatCurrency(item.amount, currency, isPrivacyHidden)}
+                      </Text>
                     </View>
 
-                    <Text style={styles.categoryItemAmount}>
-                      {formatCurrency(item.amount, currency, isPrivacyHidden)}
-                    </Text>
-                  </View>
-
-                  {/* Visual Progress Bar with Reanimated */}
-                  <View style={{ marginTop: 8 }}>
-                    <AnimatedProgressBar
-                      progress={item.percentage}
-                      color={item.color}
-                      trackColor={isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)'}
-                      height={6}
-                      borderRadius={3}
-                    />
-                  </View>
-                </PressableScale>
-              );
-            })}
+                    {/* Visual Progress Bar with Reanimated */}
+                    <View style={{ marginTop: 8 }}>
+                      <AnimatedProgressBar
+                        progress={item.percentage}
+                        color={item.color}
+                        trackColor={isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)'}
+                        height={6}
+                        borderRadius={3}
+                      />
+                    </View>
+                  </PressableScale>
+                );
+              })
+            ) : (
+              <View style={styles.emptyCategoriesContainer}>
+                <Ionicons name="pie-chart-outline" size={32} color={colors.textMuted} style={{ marginBottom: 6 }} />
+                <Text style={styles.emptyCategoriesText}>No hay gastos registrados en este período</Text>
+              </View>
+            )}
           </View>
 
           {/* Filtered Category Movements Drawer */}
@@ -2045,5 +2036,19 @@ const createStyles = (colors: ThemeColorTokens, isDark: boolean) =>
       fontSize: 14,
       fontWeight: '800',
       color: '#FFFFFF',
+    },
+    emptyCategoriesContainer: {
+      padding: 24,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.card,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.borderSubtle,
+    },
+    emptyCategoriesText: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      textAlign: 'center',
     },
   });
