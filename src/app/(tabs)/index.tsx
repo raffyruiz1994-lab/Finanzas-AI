@@ -253,10 +253,13 @@ export default function DashboardScreen() {
   }, [transactions]);
 
   const availableBalance = useMemo(() => {
-    if (accounts && accounts.length > 0) {
-      return accounts.reduce((acc, a) => acc + (a.balance || 0), 0);
+    const netTransactions = totalIncome - totalExpense;
+    const accountsBalance = (accounts || []).reduce((acc, a) => acc + (a.balance || 0), 0);
+
+    if (accountsBalance !== 0) {
+      return accountsBalance;
     }
-    return totalIncome - totalExpense;
+    return netTransactions;
   }, [accounts, totalIncome, totalExpense]);
 
   // Last expense calculation
@@ -915,9 +918,14 @@ export default function DashboardScreen() {
               <Text style={styles.balanceLabel}>BALANCE TOTAL DISPONIBLE</Text>
               <AnimatedNumber
                 value={availableBalance}
-                currencyPrefix={currencySymbol}
+                currencyPrefix={availableBalance < 0 ? `-${currencySymbol}` : currencySymbol}
                 isPrivacyHidden={isPrivacyHidden}
-                formatter={formatAmount}
+                formatter={(val) =>
+                  Math.abs(val).toLocaleString('en-US', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })
+                }
                 style={styles.balanceAmount}
               />
 
@@ -1022,9 +1030,9 @@ export default function DashboardScreen() {
                 <Text style={styles.miniBalanceLabel}>Disp.</Text>
                 <AnimatedNumber
                   value={availableBalance}
-                  currencyPrefix={currencySymbol}
+                  currencyPrefix={availableBalance < 0 ? `-${currencySymbol}` : currencySymbol}
                   isPrivacyHidden={isPrivacyHidden}
-                  formatter={(val: number) => `${currencySymbol}${formatCompactNumber(val)}`}
+                  formatter={(val: number) => formatCompactNumber(Math.abs(val))}
                   style={[styles.miniBalanceAmount, { color: colors.text }]}
                 />
               </PressableScale>

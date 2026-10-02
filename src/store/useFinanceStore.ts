@@ -468,16 +468,20 @@ export const useFinanceStore = create<FinanceState>()(
 
   addTransaction: (txData) => {
     const newId = `tx_${Date.now()}`;
+    const defaultAccountId = txData.accountId || (get().accounts[0]?.id ?? 'acc_cash_main');
     const newTx: Transaction = {
       ...txData,
       id: newId,
+      accountId: defaultAccountId,
       date: txData.date || new Date().toISOString().split('T')[0],
       time: txData.time || `${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}`,
     };
 
     set((state) => {
+      const targetAccountId = newTx.accountId || (state.accounts[0]?.id ?? 'acc_cash_main');
       const updatedAccounts = state.accounts.map((acc) => {
-        if (newTx.type === 'expense' && acc.id === newTx.accountId) {
+        const isTarget = acc.id === targetAccountId || state.accounts.length === 1;
+        if (newTx.type === 'expense' && isTarget) {
           if (acc.type === 'credit_card') {
             const used = (acc.balanceUsed || 0) + newTx.amount;
             return {
@@ -489,7 +493,7 @@ export const useFinanceStore = create<FinanceState>()(
           return { ...acc, balance: acc.balance - newTx.amount };
         }
 
-        if (newTx.type === 'income' && acc.id === newTx.accountId) {
+        if (newTx.type === 'income' && isTarget) {
           return { ...acc, balance: acc.balance + newTx.amount };
         }
 
@@ -585,8 +589,10 @@ export const useFinanceStore = create<FinanceState>()(
       const tx = state.transactions.find((t) => t.id === id);
       if (!tx) return state;
 
+      const targetAccountId = tx.accountId || (state.accounts[0]?.id ?? 'acc_cash_main');
       const updatedAccounts = state.accounts.map((acc) => {
-        if (tx.type === 'expense' && acc.id === tx.accountId) {
+        const isTarget = acc.id === targetAccountId || state.accounts.length === 1;
+        if (tx.type === 'expense' && isTarget) {
           if (acc.type === 'credit_card') {
             return {
               ...acc,
@@ -597,7 +603,7 @@ export const useFinanceStore = create<FinanceState>()(
           return { ...acc, balance: acc.balance + tx.amount };
         }
 
-        if (tx.type === 'income' && acc.id === tx.accountId) {
+        if (tx.type === 'income' && isTarget) {
           return { ...acc, balance: acc.balance - tx.amount };
         }
 

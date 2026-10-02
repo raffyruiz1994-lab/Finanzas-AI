@@ -486,6 +486,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
   const budgets = useFinanceStore((state) => state.budgets);
   const commonTemplates = useFinanceStore((state) => state.commonTemplates);
   const executeCommonTemplate = useFinanceStore((state) => state.executeCommonTemplate);
+  const accounts = useFinanceStore((state) => state.accounts);
   const transactions = useFinanceStore((state) => state.transactions);
 
   const currentBalance = useMemo(() => {
@@ -809,6 +810,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
       type: 'expense',
       amount: numAmount,
       currency: currencyCode,
+      accountId: accounts[0]?.id || 'acc_cash_main',
       categoryId: selectedCategoryId,
       subcategory: selectedSubcategory || undefined,
       goalId: matchingGoal?.id,
@@ -900,6 +902,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
       type: 'income',
       amount: numAmount,
       currency: currencyCode,
+      accountId: accounts[0]?.id || 'acc_cash_main',
       categoryId: selectedCategoryId,
       subcategory: selectedSubcategory || undefined,
       date: selectedDate,
@@ -1002,6 +1005,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
         type: parsedPreview.type === 'income' ? 'income' : 'expense',
         amount: parsedPreview.amount,
         currency: currencyCode,
+        accountId: accounts[0]?.id || 'acc_cash_main',
         categoryId: parsedPreview.categoryId,
         subcategory: parsedPreview.subcategory,
         date: new Date().toISOString().split('T')[0],
@@ -1022,6 +1026,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
         type: voiceParsed.type === 'income' ? 'income' : 'expense',
         amount: voiceParsed.amount,
         currency: currencyCode,
+        accountId: accounts[0]?.id || 'acc_cash_main',
         categoryId: voiceParsed.categoryId,
         subcategory: voiceParsed.subcategory,
         date: new Date().toISOString().split('T')[0],
@@ -1043,6 +1048,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
         type: 'expense',
         amount: numTotal,
         currency: currencyCode,
+        accountId: accounts[0]?.id || 'acc_cash_main',
         categoryId: ocrCategory,
         date: ocrDate,
         description: ocrMerchant.trim() || 'Recibo de compra',
