@@ -4,6 +4,13 @@ Este archivo mantiene el registro oficial de las tareas pendientes y futuras mej
 
 ---
 
+## ⚡ Comandos Rápidos del Proyecto
+
+* **Compilación de Android**: *"compila y dame la app android"* ➔ Dispara manualmente la creación de un nuevo `.apk` en GitHub Actions y entrega el enlace de descarga directo (para no compilar en cada cambio menor).
+* **Login Offline**: *"pongamos el login que guarde de manera local en la apk"* ➔ Activa la implementación de autenticación local en el dispositivo.
+
+---
+
 ## ⏳ Tareas Pendientes
 
 ### 1. Autenticación y Registro Local Offline en el APK
