@@ -23,6 +23,8 @@ import { useAppTheme } from '@/hooks/useAppTheme';
 import { CURRENCIES, Transaction, Category } from '@/types';
 import { TransactionDetailModal } from '@/components/modals/TransactionDetailModal';
 import { AIAssistantModal } from '@/components/modals/AIAssistantModal';
+import { TabyHeaderIsland } from '@/components/dashboard/TabyHeaderIsland';
+import { tabySpeechService } from '@/services/taby/tabySpeechService';
 import { BudgetsModal } from '@/components/modals/BudgetsModal';
 import { GoalsModal } from '@/components/modals/GoalsModal';
 import { DebtsModal } from '@/components/modals/DebtsModal';
@@ -207,6 +209,19 @@ export default function DashboardScreen() {
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
   const [loginModalVisible, setLoginModalVisible] = useState(false);
   const [aiModalVisible, setAiModalVisible] = useState(false);
+  const isTabyIslandActive = useUIStore((s) => s.isTabyActive);
+  const setIsTabyIslandActive = useUIStore((s) => s.setIsTabyActive);
+  const [tabySelectedCategory, setTabySelectedCategory] = useState<string | null>(null);
+
+  const handleOpenTaby = () => {
+    haptic.medium();
+    tabySpeechService.stop();
+    useUIStore.getState().setTabyState('idle');
+    useUIStore.getState().setIsTabyListening(false);
+    useUIStore.setState({ tabyTriggerAction: null });
+    setIsTabyIslandActive(true);
+    scrollToTop();
+  };
   const [budgetsModalVisible, setBudgetsModalVisible] = useState(false);
   const [goalsModalVisible, setGoalsModalVisible] = useState(false);
   const [debtsModalVisible, setDebtsModalVisible] = useState(false);
@@ -413,7 +428,14 @@ export default function DashboardScreen() {
       <Animated.ScrollView
         ref={scrollViewRef}
         style={[styles.scrollView, { backgroundColor: colors.background }]}
-        contentContainerStyle={[styles.scrollContent, { paddingTop: heroHeight }]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingTop: isTabyIslandActive
+              ? Math.max(insets.top + 2, 38) + 220
+              : heroHeight,
+          },
+        ]}
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}
         onScroll={Animated.event(
@@ -484,7 +506,13 @@ export default function DashboardScreen() {
             <View style={styles.expenseOptionsGrid}>
               {/* Tarjeta 1: Comida */}
               <PressableScale
-                onPress={() => openNewTxModal('food')}
+                onPress={() => {
+                  if (isTabyIslandActive) {
+                    setTabySelectedCategory('Comida');
+                  } else {
+                    openNewTxModal('food');
+                  }
+                }}
                 style={[styles.optionCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
                 hapticType="selection"
               >
@@ -504,7 +532,13 @@ export default function DashboardScreen() {
 
               {/* Tarjeta 2: Viajes */}
               <PressableScale
-                onPress={() => openNewTxModal('transport')}
+                onPress={() => {
+                  if (isTabyIslandActive) {
+                    setTabySelectedCategory('Viajes');
+                  } else {
+                    openNewTxModal('transport');
+                  }
+                }}
                 style={[styles.optionCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
                 hapticType="selection"
               >
@@ -524,7 +558,13 @@ export default function DashboardScreen() {
 
               {/* Tarjeta 3: Mercado */}
               <PressableScale
-                onPress={() => openNewTxModal('groceries')}
+                onPress={() => {
+                  if (isTabyIslandActive) {
+                    setTabySelectedCategory('Mercado');
+                  } else {
+                    openNewTxModal('groceries');
+                  }
+                }}
                 style={[styles.optionCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
                 hapticType="selection"
               >
@@ -544,7 +584,13 @@ export default function DashboardScreen() {
 
               {/* Tarjeta 4: Servicios */}
               <PressableScale
-                onPress={() => openNewTxModal('home')}
+                onPress={() => {
+                  if (isTabyIslandActive) {
+                    setTabySelectedCategory('Servicios');
+                  } else {
+                    openNewTxModal('home');
+                  }
+                }}
                 style={[styles.optionCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
                 hapticType="selection"
               >
@@ -776,7 +822,7 @@ export default function DashboardScreen() {
               </Text>
             </View>
             <Pressable
-              onPress={() => setAiModalVisible(true)}
+              onPress={handleOpenTaby}
               style={({ pressed }) => [
                 styles.copilotBtn,
                 { backgroundColor: colors.primarySoft },
@@ -800,18 +846,34 @@ export default function DashboardScreen() {
         style={[
           styles.stickyHeaderContainer,
           {
-            transform: [{ translateY: headerTranslateY }],
+            transform: [{ translateY: isTabyIslandActive ? 0 : headerTranslateY }],
           },
         ]}
         pointerEvents="box-none"
       >
-        <LinearGradient
-          colors={['#FF5500', '#FF6800', '#FF6800', '#E65100']}
-          start={{ x: 0.5, y: 0 }}
-          end={{ x: 0.5, y: 1 }}
-          onLayout={handleHeroLayout}
-          style={[styles.heroCard, { paddingTop: Math.max(insets.top + 8, 48) }]}
-        >
+        <View style={isTabyIslandActive ? undefined : { display: 'none' }}>
+          <TabyHeaderIsland
+            visible={isTabyIslandActive}
+            onClose={() => {
+              setIsTabyIslandActive(false);
+              setTabySelectedCategory(null);
+            }}
+            insets={insets}
+            activeCategory={tabySelectedCategory}
+            onSelectQuickAction={() => {
+              openNewTxModal();
+            }}
+          />
+        </View>
+
+        {!isTabyIslandActive && (
+          <LinearGradient
+            colors={['#FF5500', '#FF6800', '#FF6800', '#E65100']}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
+            onLayout={handleHeroLayout}
+            style={[styles.heroCard, { paddingTop: Math.max(insets.top + 8, 48) }]}
+          >
           {/* Luces difusas de ambiente */}
           <View style={styles.ambientGlowTopRight} pointerEvents="none" />
           <View style={styles.ambientGlowBottomLeft} pointerEvents="none" />
@@ -967,7 +1029,7 @@ export default function DashboardScreen() {
 
               {/* 2. Añadir IA (Botón traslúcido) */}
               <PressableScale
-                onPress={() => setAiModalVisible(true)}
+                onPress={handleOpenTaby}
                 style={styles.actionItem}
                 hapticType="medium"
               >
@@ -1065,6 +1127,7 @@ export default function DashboardScreen() {
             />
           </View>
         </LinearGradient>
+        )}
       </Animated.View>
 
       {/* ======================================================== */}

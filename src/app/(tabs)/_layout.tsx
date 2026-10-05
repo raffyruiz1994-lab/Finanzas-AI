@@ -15,7 +15,12 @@ import { useFinanceStore } from '@/store/useFinanceStore';
 import { useUIStore } from '@/store/useUIStore';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { NewTransactionModal } from '@/components/modals/NewTransactionModal';
-import { PressableScale } from '@/components/animated';
+import { tabySoundService } from '@/services/taby/tabySoundService';
+import { tabySpeechService } from '@/services/taby/tabySpeechService';
+import { tabyAudioRecorderService } from '@/services/taby/tabyAudioRecorderService';
+import { tabyAIService } from '@/services/taby/tabyAIService';
+import { PressableScale } from '@/components/animated/PressableScale';
+import * as Haptics from 'expo-haptics';
 
 interface TabItemProps {
   name: string;
@@ -82,11 +87,11 @@ function CustomTabBar({ state, navigation }: any) {
   const { colors, isDark } = useAppTheme();
   const openNewTxModal = useFinanceStore((s) => s.openNewTxModal);
   const openCrearPlanModal = useFinanceStore((s) => s.openCrearPlanModal);
+  const isTabyActive = useUIStore((s) => s.isTabyActive);
+  const triggerTabyVoice = useUIStore((s) => s.triggerTabyVoice);
+  const tabyState = useUIStore((s) => s.tabyState);
 
-  // Adaptación dinámica de altura:
-  // En Android con 3 botones de navegación (o barra de gestos), insets.bottom provee el espacio exacto del sistema.
-  // En iOS, provee el espacio del Home Indicator (34px).
-  // Se suma la altura base del contenido de los tabs (52-56px) para que NUNCA se recorte ni quede tapado.
+  // Adaptación dinámica de altura para que nunca se recorte
   const bottomInset = Math.max(insets.bottom, Platform.OS === 'android' ? 14 : 8);
   const baseTabHeight = Platform.OS === 'ios' ? 52 : 56;
   const totalBarHeight = baseTabHeight + bottomInset;
@@ -96,6 +101,152 @@ function CustomTabBar({ state, navigation }: any) {
   const isCurrent = (name: string) => {
     const idx = getRouteIndex(name);
     return state.index === idx;
+  };
+
+  const [isMicRecording, setIsMicRecording] = React.useState(false);
+  const isRecordingRef = React.useRef(false);
+  const pressStartTimeRef = React.useRef(0);
+  const isHoldingRef = React.useRef(false);
+  const holdTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Pre-calentar sistema de audio apenas Taby esté activo
+  React.useEffect(() => {
+    if (isTabyActive) {
+      tabyAudioRecorderService.prewarm();
+    } else {
+      if (isRecordingRef.current) {
+        stopAndProcessRecording(true);
+      }
+    }
+    return () => {
+      if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+    };
+  }, [isTabyActive]);
+
+  const startRecordingSession = async () => {
+    if (isRecordingRef.current) return;
+
+    // Detener cualquier voz activa de Taby para escuchar atentamente
+    tabySpeechService.stop();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    isRecordingRef.current = true;
+    setIsMicRecording(true);
+    useUIStore.getState().setIsTabyListening(true);
+    useUIStore.getState().setTabyState('listening');
+
+    const result = await tabyAudioRecorderService.start();
+    if (!result.success) {
+      isRecordingRef.current = false;
+      setIsMicRecording(false);
+      useUIStore.getState().setIsTabyListening(false);
+      useUIStore.getState().setTabyState('idle');
+
+      if (result.isPermissionDenied) {
+        useUIStore.getState().showToast({
+          type: 'warning',
+          message: 'Permiso de micrófono requerido para hablar con Taby',
+        });
+      } else {
+        useUIStore.getState().showToast({
+          type: 'warning',
+          message: result.error || 'No se pudo iniciar la grabación',
+        });
+      }
+    }
+  };
+
+  const stopAndProcessRecording = async (abortOnly: boolean = false) => {
+    if (!isRecordingRef.current && !tabyAudioRecorderService.isRecording()) return;
+
+    isRecordingRef.current = false;
+    setIsMicRecording(false);
+    useUIStore.getState().setIsTabyListening(false);
+
+    if (abortOnly) {
+      await tabyAudioRecorderService.stop();
+      useUIStore.getState().setTabyState('idle');
+      return;
+    }
+
+    // Detener la grabadora nativa PRIMERO y capturar el URI antes de disparar el estado de pensamiento
+    let audioUri: string | null = null;
+    try {
+      audioUri = await tabyAudioRecorderService.stop();
+    } catch (e) {
+      console.warn('[Taby] Error al detener grabadora:', e);
+    }
+
+    if (!audioUri) {
+      useUIStore.getState().setTabyState('idle');
+      return;
+    }
+
+    // Ahora que el archivo de audio está cerrado y seguro en disco, pasar a pensar
+    useUIStore.getState().setTabyState('thinking');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    try {
+      // Procesar audio real con Gemini
+      const result = await tabyAIService.processAudio(audioUri);
+      useUIStore.getState().setTabyState('talking');
+      useUIStore.getState().triggerTabyAction({
+        type: (result.emotion as any) || (result.success ? 'celebrate' : 'talking'),
+        text: result.reply,
+        speechText: result.speechText || result.reply,
+      });
+    } catch (err) {
+      console.warn('[Taby] Error processing recording:', err);
+      useUIStore.getState().setTabyState('talking');
+      useUIStore.getState().triggerTabyAction({
+        type: 'talking',
+        text: 'No logré entender el audio. Intenta de nuevo.',
+        speechText: 'No logré entender el audio. Intenta de nuevo.',
+      });
+    }
+  };
+
+  const handleMicPressIn = () => {
+    if (!isTabyActive) return;
+
+    // Si ya estaba grabando, al presionar se detiene y procesa
+    if (isRecordingRef.current) {
+      stopAndProcessRecording();
+      return;
+    }
+
+    pressStartTimeRef.current = Date.now();
+    isHoldingRef.current = false;
+
+    startRecordingSession();
+
+    if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+    holdTimerRef.current = setTimeout(() => {
+      isHoldingRef.current = true;
+    }, 280);
+  };
+
+  const handleMicPressOut = () => {
+    if (!isTabyActive) return;
+
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+
+    if (!isRecordingRef.current) return;
+
+    const duration = Date.now() - pressStartTimeRef.current;
+    isHoldingRef.current = false;
+
+    // Si el toque fue extremadamente rápido (< 250ms), cancelar sin error para no trabar
+    if (duration < 250) {
+      stopAndProcessRecording(true);
+      return;
+    }
+
+    // Procesar grabación normalmente
+    stopAndProcessRecording(false);
   };
 
   const handleCenterFabPress = () => {
@@ -125,11 +276,8 @@ function CustomTabBar({ state, navigation }: any) {
         {
           backgroundColor: colors.tabBarBg,
           borderTopColor: colors.tabBarBorder,
-          shadowColor: colors.cardShadow,
-          shadowOpacity: isDark ? 0.45 : 0.08,
           height: totalBarHeight,
           paddingBottom: bottomInset,
-          paddingTop: 4,
         },
       ]}
     >
@@ -137,14 +285,14 @@ function CustomTabBar({ state, navigation }: any) {
       <TabItemWithAnimation
         name="index"
         label="Inicio"
-        iconActive="grid"
-        iconInactive="grid-outline"
+        iconActive="home"
+        iconInactive="home-outline"
         isActive={isCurrent('index')}
         onPress={() => navigateTo('index')}
         colors={colors}
       />
 
-      {/* 2. Presupuestos (accounts) */}
+      {/* 2. Presupuestos */}
       <TabItemWithAnimation
         name="accounts"
         label="Presupuestos"
@@ -155,23 +303,61 @@ function CustomTabBar({ state, navigation }: any) {
         colors={colors}
       />
 
-      {/* 3. Floating '+' Button in Radiant Amber */}
-      <View style={styles.fabWrapper}>
-        <PressableScale
-          onPress={handleCenterFabPress}
-          style={[styles.fabButton, { borderColor: colors.tabBarBg }]}
-          scaleTo={0.88}
-          hapticType="medium"
-        >
-          <LinearGradient
-            colors={['#FF6B00', '#FF8A00']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.fabGradient}
+      {/* 3. Floating '+' Button / Microphone when Taby is active */}
+      <View style={[styles.fabWrapper, isTabyActive && styles.fabWrapperTaby]}>
+        {isTabyActive ? (
+          <Pressable
+            onPressIn={handleMicPressIn}
+            onPressOut={handleMicPressOut}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            style={({ pressed }) => [
+              styles.fabButton,
+              { borderColor: colors.tabBarBg },
+              styles.fabButtonTaby,
+              pressed && { transform: [{ scale: 0.92 }] },
+            ]}
           >
-            <Ionicons name="add" size={28} color="#FFFFFF" />
-          </LinearGradient>
-        </PressableScale>
+            <LinearGradient
+              colors={
+                isMicRecording
+                  ? ['#EF4444', '#DC2626']
+                  : ['#FF6B00', '#FF8A00']
+              }
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[styles.fabGradient, styles.fabGradientTaby]}
+            >
+              <Ionicons
+                name={isMicRecording ? 'mic' : 'mic-outline'}
+                size={28}
+                color="#FFFFFF"
+              />
+            </LinearGradient>
+          </Pressable>
+        ) : (
+          <PressableScale
+            onPress={handleCenterFabPress}
+            style={[
+              styles.fabButton,
+              { borderColor: colors.tabBarBg },
+            ]}
+            scaleTo={0.88}
+            hapticType="medium"
+          >
+            <LinearGradient
+              colors={['#FF6B00', '#FF8A00']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.fabGradient}
+            >
+              <Ionicons
+                name="add"
+                size={28}
+                color="#FFFFFF"
+              />
+            </LinearGradient>
+          </PressableScale>
+        )}
       </View>
 
       {/* 4. Estadísticas */}
@@ -310,5 +496,22 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  fabWrapperTaby: {
+    top: -22,
+  },
+  fabButtonTaby: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 4,
+    shadowColor: '#FF6800',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.65,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  fabGradientTaby: {
+    borderRadius: 28,
   },
 });

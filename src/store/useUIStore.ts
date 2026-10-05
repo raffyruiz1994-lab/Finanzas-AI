@@ -58,6 +58,29 @@ interface UIState {
   lastRegisteredTx: RegisteredTxEffectPayload | null;
   triggerRegisteredTxEffect: (tx: Omit<RegisteredTxEffectPayload, 'timestamp'>) => void;
   clearRegisteredTxEffect: () => void;
+
+  // Taby Assistant Global State
+  isTabyActive: boolean;
+  setIsTabyActive: (active: boolean) => void;
+  isTabyListening: boolean;
+  setIsTabyListening: (listening: boolean) => void;
+  tabyVoiceTrigger: number;
+  triggerTabyVoice: () => void;
+  tabySubtitle: string;
+  setTabySubtitle: (subtitle: string) => void;
+  tabyState: 'idle' | 'listening' | 'thinking' | 'talking' | 'success' | 'love' | 'angry';
+  setTabyState: (state: 'idle' | 'listening' | 'thinking' | 'talking' | 'success' | 'love' | 'angry') => void;
+  tabyTriggerAction: {
+    type: 'love' | 'angry' | 'success' | 'talking' | 'idle' | 'no' | 'disappointed' | 'wow' | 'happy' | 'celebrate';
+    text?: string;
+    speechText?: string;
+    timestamp: number;
+  } | null;
+  triggerTabyAction: (action: {
+    type: 'love' | 'angry' | 'success' | 'talking' | 'idle' | 'no' | 'disappointed' | 'wow' | 'happy' | 'celebrate';
+    text?: string;
+    speechText?: string;
+  }) => void;
 }
 
 export const useUIStore = create<UIState>((set, get) => ({
@@ -139,6 +162,24 @@ export const useUIStore = create<UIState>((set, get) => ({
     });
   },
   clearRegisteredTxEffect: () => set({ lastRegisteredTx: null }),
+
+  // Taby Assistant
+  isTabyActive: false,
+  setIsTabyActive: (isTabyActive) => set({ isTabyActive }),
+  isTabyListening: false,
+  setIsTabyListening: (isTabyListening) => set({ isTabyListening }),
+  tabyVoiceTrigger: 0,
+  triggerTabyVoice: () => set((state) => ({ tabyVoiceTrigger: state.tabyVoiceTrigger + 1 })),
+  tabySubtitle: 'En espera... todo tranquilo.',
+  setTabySubtitle: (tabySubtitle) => set({ tabySubtitle }),
+  tabyState: 'idle',
+  setTabyState: (tabyState) => set({ tabyState }),
+  tabyTriggerAction: null,
+  triggerTabyAction: (action) =>
+    set({
+      tabyTriggerAction: { ...action, timestamp: Date.now() },
+      tabyState: 'talking',
+    }),
 }));
 
 // Quick hook for toasts
